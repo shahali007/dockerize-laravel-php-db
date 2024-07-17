@@ -1,0 +1,111 @@
+services:
+
+  # PHP Service
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - app-network
+
+  # Nginx Service
+  webserver:
+    image: nginx:stable
+    container_name: webserver
+    restart: unless-stopped
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+    working_dir: /var/www/html
+    ports:
+      - "9001:80"
+      - "443:443"
+    networks:
+      - app-network
+    depends_on:
+      - php
+      - mysql
+      # - postgres
+
+  # MySQL Service
+  mysql:
+    image: mysql:latest
+    container_name: mysql
+    restart: unless-stopped
+    ports:
+      - "3301:3306"  # Map container port 3301 to host port 3306
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_TCP_PORT: ${DB_PORT}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
+
+  # phpMyAdmin Service
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      MYSQL_ROOT_PASSWORD: admin123
+    networks:
+      - app-network
+    depends_on:
+      - mysql
+
+  # #PostgreSQL
+  # postgres:
+  #   image: postgres:latest
+  #   container_name: postgres
+  #   restart: unless-stopped
+  #   ports:
+  #     - 5434:5432
+  #   # env_file:
+  #   #   - ./src/.env
+  #   volumes:
+  #     - pg-data:/var/lib/postgresql/data:rw
+  #   networks:
+  #     - app-network
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: postgres
+
+
+  # pgadmin:
+  #   depends_on:
+  #     - postgres
+  #   image: dpage/pgadmin4
+  #   container_name: pgadmin4
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5050:80"
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@example.com
+  #     PGADMIN_DEFAULT_PASSWORD: admin123
+  #   volumes:
+  #     - pg-data:/var/lib/postgresql/data:rw
+  #   networks:
+  #     - app-network
+
+networks:
+  app-network: null
+
+volumes:
+  db_data:
+    driver: local
+  pg-data:
+    driver: local
